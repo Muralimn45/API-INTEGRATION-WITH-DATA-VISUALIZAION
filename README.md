@@ -35,3 +35,4 @@ To display these visuals on a webpage, you'll use the same foundational approach
 This method is highly scalable. You can expand the project to include more advanced visualizations, such as displaying a forecast for the next 24 hours, or fetching and plotting data for multiple cities at once. The core logic of fetching, plotting, and serving the image remains the same, providing a solid foundation for your data-driven project.
 
 #OUTPUT: <img width="1124" height="558" alt="Image" src="https://github.com/user-attachments/assets/d86f01ce-bd9d-4dd1-886a-a23171e4e668" />
+<img width="1111" height="759" alt="Image" src="https://github.com/user-attachments/assets/85e09078-1a56-4744-94d3-2f3ba3ad4598" />
