@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import io
 import base64
-from datetime import datetime
+from datetime import datetime, timedelta
 import os  # We'll use this to get a secure random key
 
 # --- Flask App Initialization ---
@@ -28,8 +28,10 @@ app.secret_key = os.urandom(24)
 # IMPORTANT: This API key is used to fetch current weather data from OpenWeatherMap.
 # You can get your own free key from https://openweathermap.org/api.
 API_KEY = "018ecddd8ef7f830fb239f1edd238b9e"
-# The base URL for the OpenWeatherMap Current Weather Data API endpoint.
-BASE_URL = "http://api.openweathermap.org/data/2.5/weather"
+# Base URL for current weather data.
+CURRENT_WEATHER_URL = "http://api.openweathermap.org/data/2.5/weather"
+# Base URL for 5-day forecast data.
+FORECAST_URL = "http://api.openweathermap.org/data/2.5/forecast"
 
 # Global data storage for the live graphs.
 timestamps = []
@@ -40,22 +42,21 @@ pressure = []
 
 
 # --- Function Definitions ---
-def get_current_weather_data(city_name):
+def get_weather_data(api_url, city_name):
     """
-    Fetches real-time weather data from the OpenWeatherMap API.
+    Fetches weather data from a given OpenWeatherMap API endpoint.
 
     Args:
+        api_url (str): The URL of the API endpoint.
         city_name (str): The name of the city to fetch data for.
 
     Returns:
-        dict or None: A dictionary containing the weather data if the request is
-                      successful, otherwise None.
+        dict or None: A dictionary with the weather data or None on failure.
     """
     if API_KEY == "YOUR_VALID_API_KEY_HERE":
         print("ERROR: Please replace 'YOUR_VALID_API_KEY_HERE' with your actual API key.", file=sys.stderr)
         return None
 
-    # Construct the parameters for the API request.
     params = {
         "q": city_name,
         "appid": API_KEY,
@@ -63,20 +64,124 @@ def get_current_weather_data(city_name):
     }
 
     try:
-        # Send a GET request to the API.
-        response = requests.get(BASE_URL, params=params)
+        response = requests.get(api_url, params=params)
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
-        print(f"ERROR: Failed to retrieve weather data. {e}", file=sys.stderr)
+        print(f"ERROR: Failed to retrieve weather data from {api_url}. {e}", file=sys.stderr)
         return None
+
+
+def get_weather_forecast(city_name):
+    """
+    Fetches and processes the 5-day weather forecast.
+
+    Args:
+        city_name (str): The name of the city for the forecast.
+
+    Returns:
+        list: A list of dictionaries, each containing forecast data for a day.
+    """
+    forecast_data = get_weather_data(FORECAST_URL, city_name)
+    if not forecast_data:
+        return []
+
+    daily_forecasts = {}
+    today = datetime.now().date()
+
+    for item in forecast_data['list']:
+        # Get the timestamp and date for each forecast item
+        dt = datetime.fromtimestamp(item['dt'])
+        date_key = dt.date()
+
+        # We are only interested in a few days ahead, so we'll skip the current day.
+        # We also limit to the next 4 days for the forecast cards.
+        if date_key > today and len(daily_forecasts) < 4:
+            if date_key not in daily_forecasts:
+                # Initialize data for a new day
+                daily_forecasts[date_key] = {
+                    'temps': [],
+                    'weather_counts': {},
+                    'date': dt
+                }
+
+            # Store temperature and count weather conditions for the day
+            daily_forecasts[date_key]['temps'].append(item['main']['temp'])
+            weather_main = item['weather'][0]['main']
+            daily_forecasts[date_key]['weather_counts'][weather_main] = \
+                daily_forecasts[date_key]['weather_counts'].get(weather_main, 0) + 1
+
+    # Process the collected daily data
+    processed_forecast = []
+    for date_key, data in daily_forecasts.items():
+        # Get the average temperature for the day
+        avg_temp = sum(data['temps']) / len(data['temps'])
+        # Determine the most common weather condition for the day
+        most_common_weather = max(data['weather_counts'], key=data['weather_counts'].get)
+
+        processed_forecast.append({
+            'date': data['date'].strftime("%b %d"),
+            'temp': int(round(avg_temp)),
+            'weather_main': most_common_weather
+        })
+
+    return processed_forecast
+
+
+def get_weather_icon(weather_main):
+    """
+    Maps a weather condition string to a specific SVG icon.
+
+    Args:
+        weather_main (str): The main weather condition from the API (e.g., 'Clear', 'Clouds').
+
+    Returns:
+        str: An HTML string with the appropriate SVG icon.
+    """
+    icons = {
+        "Clear": """
+            <svg class="h-full w-full" fill="#fddb00" viewBox="0 0 24 24">
+                <path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            """,
+        "Clouds": """
+            <svg class="h-full w-full" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M18 10h-1.26a8 8 0 1 0-16.34 0h1.26"/>
+                <path d="M22 17h-1.26a8 8 0 1 0-16.34 0h1.26"/>
+            </svg>
+            """,
+        "Rain": """
+            <svg class="h-full w-full" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 014-4h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a4 4 0 01-4-4z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16 8a4 4 0 014 4v2a2 2 0 01-2 2h-2a4 4 0 01-4-4h2a2 2 0 012-2v-2" />
+            </svg>
+            """,
+        "Drizzle": """
+            <svg class="h-full w-full" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm0 9a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5z" />
+            </svg>
+        """,
+        "Thunderstorm": """
+            <svg class="h-full w-full" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+        """,
+        "Snow": """
+            <svg class="h-full w-full" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5M5 12h14" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 19L5 5M5 19l14-14" />
+            </svg>
+        """
+    }
+    # Return a cloud icon for any unhandled weather conditions.
+    return icons.get(weather_main, icons["Clouds"])
 
 
 def update_live_data(city_name):
     """
     Fetches new data and appends it to the global lists for live visualization.
     """
-    data = get_current_weather_data(city_name)
+    data = get_weather_data(CURRENT_WEATHER_URL, city_name)
     if data and 'main' in data and 'wind' in data:
         current_temp = data['main']['temp']
         current_humidity = data['main']['humidity']
@@ -170,12 +275,18 @@ def index():
     if request.method == "POST":
         city_name = request.form.get("city")
         session['city'] = city_name
+        # Clear data on new city search to prevent mixed graphs
+        timestamps.clear()
+        temperatures.clear()
+        humidity.clear()
+        wind_speed.clear()
+        pressure.clear()
     else:
         city_name = session.get('city', 'Dnipro, Ukraine')
 
     # Update data with the remembered city name.
     update_live_data(city_name)
-    current_weather_data = get_current_weather_data(city_name)
+    current_weather_data = get_weather_data(CURRENT_WEATHER_URL, city_name)
 
     # Extract data with safe access
     if current_weather_data:
@@ -184,6 +295,7 @@ def index():
         current_wind_speed = current_weather_data['wind']['speed']
         current_pressure = current_weather_data['main']['pressure']
         current_weather_description = current_weather_data['weather'][0]['description']
+        current_weather_main = current_weather_data['weather'][0]['main']
         location_display = f"{current_weather_data['name']}, {current_weather_data['sys']['country']}"
     else:
         # Fallback values if API call fails
@@ -192,10 +304,14 @@ def index():
         current_wind_speed = 'N/A'
         current_pressure = 'N/A'
         current_weather_description = 'N/A'
+        current_weather_main = 'N/A'
         location_display = city_name
 
     current_date = datetime.now().strftime("%B %d")
     current_day = datetime.now().strftime("%A")
+    current_icon_svg = get_weather_icon(current_weather_main)
+
+    forecast_list = get_weather_forecast(city_name)
 
     # Generate the plot image.
     plot_image_base64 = create_plot(city_name)
@@ -262,7 +378,7 @@ def index():
             .glass-input:focus {
                 box-shadow: 0 0 0 2px rgba(255,255,255,0.5), inset 0 2px 4px rgba(0,0,0,0.15);
             }
-            .icon-main {
+            .icon-main-container {
                 width: 180px;
                 height: 180px;
                 background-color: #a4b0d8;
@@ -272,12 +388,9 @@ def index():
                 align-items: center;
                 box-shadow: 0 15px 30px rgba(0,0,0,0.2);
             }
-            .sun-icon {
-                background-color: #fddb00;
+            .main-icon-svg {
                 width: 100px;
                 height: 100px;
-                border-radius: 50%;
-                box-shadow: 0 0 20px #fddb00, 0 0 40px rgba(253, 219, 0, 0.5);
             }
             .main-temp {
                 font-size: 4rem;
@@ -319,9 +432,9 @@ def index():
                 </form>
             </div>
 
-            <div class="flex flex-col sm:flex-row items-center justify-between gap-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-8 items-center">
                 <!-- Left Section: Current Weather Details -->
-                <div class="flex flex-col w-full sm:w-auto">
+                <div class="flex flex-col">
                     <div class="flex items-center mb-2">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-1 text-gray-700" viewBox="0 0 24 24" fill="currentColor">
                             <path fill-rule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm0 9a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5z" clip-rule="evenodd" />
@@ -337,16 +450,9 @@ def index():
                 </div>
 
                 <!-- Right Section: Icon and Details -->
-                <div class="flex flex-col items-center justify-center sm:w-auto">
-                    <div class="w-24 h-24 relative">
-                        <div class="icon-main">
-                            <!-- A simple cloud and sun SVG combo for visual representation -->
-                            <svg class="h-full w-full opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M18 10h-1.26a8 8 0 1 0-16.34 0h1.26"/>
-                                <path d="M22 17h-1.26a8 8 0 1 0-16.34 0h1.26"/>
-                            </svg>
-                        </div>
-                        <div class="sun-icon absolute top-1/2 left-1/2 transform -translate-x-1/4 -translate-y-1/2"></div>
+                <div class="flex flex-col items-center justify-center">
+                    <div class="icon-main-container mb-4">
+                        {{ current_icon_svg|safe }}
                     </div>
                      <div class="mt-4 text-center">
                         <p class="text-sm font-medium">Pressure: {{ "%.0f"|format(current_pressure) if current_pressure != 'N/A' else 'N/A' }} hPa</p>
@@ -361,44 +467,17 @@ def index():
                 <img src="data:image/png;base64,{{ plot_image }}" alt="Live Weather Graphs" class="graph-image">
             </div>
 
-            <!-- Forecast Cards (Mock Data) -->
+            <!-- Forecast Cards -->
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
+                {% for forecast in forecast_list %}
                 <div class="icon-box">
-                    <p class="text-sm">Today</p>
-                    <div class="mt-2">
-                         <svg class="h-10 w-10 mx-auto text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                             <path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 014-4h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a4 4 0 01-4-4zm7-6a4 4 0 014-4h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a4 4 0 01-4-4z" />
-                         </svg>
+                    <p class="text-sm">{{ forecast['date'] }}</p>
+                    <div class="mt-2 text-gray-600 w-10 h-10 mx-auto">
+                        {{ get_weather_icon(forecast['weather_main'])|safe }}
                     </div>
-                    <p class="text-lg font-bold mt-1">-3°C</p>
+                    <p class="text-lg font-bold mt-1">{{ forecast['temp'] }}°C</p>
                 </div>
-                <div class="icon-box">
-                    <p class="text-sm">Jan 9</p>
-                    <div class="mt-2">
-                         <svg class="h-10 w-10 mx-auto text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                         </svg>
-                    </div>
-                    <p class="text-lg font-bold mt-1">-1°C</p>
-                </div>
-                <div class="icon-box">
-                    <p class="text-sm">Jan 10</p>
-                    <div class="mt-2">
-                         <svg class="h-10 w-10 mx-auto text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 014-4h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a4 4 0 01-4-4zm7-6a4 4 0 014-4h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a4 4 0 01-4-4z" />
-                         </svg>
-                    </div>
-                    <p class="text-lg font-bold mt-1">+2°C</p>
-                </div>
-                <div class="icon-box">
-                    <p class="text-sm">Jan 11</p>
-                    <div class="mt-2">
-                         <svg class="h-10 w-10 mx-auto text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 014-4h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a4 4 0 01-4-4zm7-6a4 4 0 014-4h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a4 4 0 01-4-4z" />
-                         </svg>
-                    </div>
-                    <p class="text-lg font-bold mt-1">+6°C</p>
-                </div>
+                {% endfor %}
             </div>
         </div>
     </body>
@@ -409,9 +488,13 @@ def index():
                                   current_wind_speed=current_wind_speed,
                                   current_pressure=current_pressure,
                                   current_weather_description=current_weather_description,
+                                  current_weather_main=current_weather_main,
+                                  current_icon_svg=current_icon_svg,
+                                  get_weather_icon=get_weather_icon,
                                   location_display=location_display,
                                   current_date=current_date,
-                                  current_day=current_day)
+                                  current_day=current_day,
+                                  forecast_list=forecast_list)
 
 
 # --- Main Entry Point ---
