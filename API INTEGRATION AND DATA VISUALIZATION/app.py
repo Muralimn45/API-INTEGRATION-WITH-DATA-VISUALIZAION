@@ -4,7 +4,6 @@
 # generated using Matplotlib and served as images.
 
 # --- Library Imports ---
-# It's best practice to put all imports at the top of the file.
 from flask import Flask, render_template_string, request, session
 import requests
 import sys
@@ -107,82 +106,51 @@ def create_plot(city_name):
     """
     Creates the weather dashboard plot and returns it as a base64-encoded string.
     """
-    # Use seaborn for consistent styling.
-    sns.set_style("darkgrid")
+    # Use a modern, light seaborn style that fits the glassmorphism theme
+    sns.set_style("whitegrid")
 
     # Create a figure with four subplots.
-    fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, figsize=(12, 20), sharex=True)
-    fig.suptitle(f"Live Weather Dashboard for {city_name}", fontsize=22, weight='bold', y=0.97)
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 12))
+    fig.suptitle(f"Live Weather Data for {city_name}", fontsize=24, weight='bold', y=0.95, color='#4a5568')
 
     # --- Plot 1: Temperature ---
-    ax1.plot(timestamps, temperatures, color='#E94560', marker='o', linestyle='-', linewidth=2, markersize=6)
-    ax1.set_title("Temperature (°C)", fontsize=16, weight='bold')
-    ax1.set_ylabel("Temp (°C)", fontsize=14)
-    if temperatures:
-        ax1.annotate(f"{temperatures[-1]}°C",
-                     xy=(timestamps[-1], temperatures[-1]),
-                     xytext=(5, 5),
-                     textcoords="offset points",
-                     ha='left', va='bottom',
-                     fontsize=12,
-                     color='#E94560',
-                     weight='bold')
+    ax1.plot(timestamps, temperatures, color='#f56565', marker='o', linestyle='-', linewidth=2, markersize=6)
+    ax1.set_title("Temperature (°C)", fontsize=16, weight='bold', color='#4a5568')
+    ax1.set_ylabel("Temp (°C)", fontsize=14, color='#718096')
     ax1.grid(True, linestyle='--', alpha=0.6)
+    ax1.tick_params(colors='#718096')
 
     # --- Plot 2: Humidity ---
-    ax2.plot(timestamps, humidity, color='#45B8AC', marker='o', linestyle='-', linewidth=2, markersize=6)
-    ax2.set_title("Humidity (%)", fontsize=16, weight='bold')
-    ax2.set_ylabel("Humidity (%)", fontsize=14)
-    if humidity:
-        ax2.annotate(f"{humidity[-1]}%",
-                     xy=(timestamps[-1], humidity[-1]),
-                     xytext=(5, 5),
-                     textcoords="offset points",
-                     ha='left', va='bottom',
-                     fontsize=12,
-                     color='#45B8AC',
-                     weight='bold')
+    ax2.plot(timestamps, humidity, color='#48bb78', marker='o', linestyle='-', linewidth=2, markersize=6)
+    ax2.set_title("Humidity (%)", fontsize=16, weight='bold', color='#4a5568')
+    ax2.set_ylabel("Humidity (%)", fontsize=14, color='#718096')
     ax2.grid(True, linestyle='--', alpha=0.6)
+    ax2.tick_params(colors='#718096')
 
     # --- Plot 3: Wind Speed ---
-    ax3.plot(timestamps, wind_speed, color='#6C4A8D', marker='o', linestyle='-', linewidth=2, markersize=6)
-    ax3.set_title("Wind Speed (m/s)", fontsize=16, weight='bold')
-    ax3.set_ylabel("Wind Speed (m/s)", fontsize=14)
-    if wind_speed:
-        ax3.annotate(f"{wind_speed[-1]} m/s",
-                     xy=(timestamps[-1], wind_speed[-1]),
-                     xytext=(5, 5),
-                     textcoords="offset points",
-                     ha='left', va='bottom',
-                     fontsize=12,
-                     color='#6C4A8D',
-                     weight='bold')
+    ax3.plot(timestamps, wind_speed, color='#667eea', marker='o', linestyle='-', linewidth=2, markersize=6)
+    ax3.set_title("Wind Speed (m/s)", fontsize=16, weight='bold', color='#4a5568')
+    ax3.set_ylabel("Wind Speed (m/s)", fontsize=14, color='#718096')
+    ax3.set_xlabel("Time", fontsize=14, color='#718096')
     ax3.grid(True, linestyle='--', alpha=0.6)
+    ax3.tick_params(colors='#718096')
+    plt.setp(ax3.get_xticklabels(), rotation=45, ha='right')
 
     # --- Plot 4: Atmospheric Pressure ---
-    ax4.plot(timestamps, pressure, color='#F39C12', marker='o', linestyle='-', linewidth=2, markersize=6)
-    ax4.set_title("Atmospheric Pressure (hPa)", fontsize=16, weight='bold')
-    ax4.set_xlabel("Time", fontsize=14)
-    ax4.set_ylabel("Pressure (hPa)", fontsize=14)
-    if pressure:
-        ax4.annotate(f"{pressure[-1]} hPa",
-                     xy=(timestamps[-1], pressure[-1]),
-                     xytext=(5, 5),
-                     textcoords="offset points",
-                     ha='left', va='bottom',
-                     fontsize=12,
-                     color='#F39C12',
-                     weight='bold')
+    ax4.plot(timestamps, pressure, color='#f6ad55', marker='o', linestyle='-', linewidth=2, markersize=6)
+    ax4.set_title("Atmospheric Pressure (hPa)", fontsize=16, weight='bold', color='#4a5568')
+    ax4.set_ylabel("Pressure (hPa)", fontsize=14, color='#718096')
+    ax4.set_xlabel("Time", fontsize=14, color='#718096')
     ax4.grid(True, linestyle='--', alpha=0.6)
+    ax4.tick_params(colors='#718096')
+    plt.setp(ax4.get_xticklabels(), rotation=45, ha='right')
 
-    # Set common x-axis properties.
-    plt.xticks(rotation=45, ha='right')
-    plt.autoscale(enable=True, axis='both', tight=True)
+    # General figure and layout adjustments
     fig.tight_layout(rect=[0, 0.03, 1, 0.95])
 
     # Save the plot to a BytesIO object.
     img_stream = io.BytesIO()
-    plt.savefig(img_stream, format='png')
+    plt.savefig(img_stream, format='png', transparent=True)
     plt.close(fig)  # Close the figure to free up memory.
     img_stream.seek(0)
 
@@ -201,60 +169,253 @@ def index():
     # Check if a city was submitted via the form
     if request.method == "POST":
         city_name = request.form.get("city")
-        session['city'] = city_name  # Store the city in the session
+        session['city'] = city_name
     else:
-        # If no POST, check the session for a city.
-        # If no city in session, use a default value.
-        city_name = session.get('city', 'London')
+        city_name = session.get('city', 'Dnipro, Ukraine')
 
     # Update data with the remembered city name.
     update_live_data(city_name)
+    current_weather_data = get_current_weather_data(city_name)
+
+    # Extract data with safe access
+    if current_weather_data:
+        current_temp = current_weather_data['main']['temp']
+        current_humidity = current_weather_data['main']['humidity']
+        current_wind_speed = current_weather_data['wind']['speed']
+        current_pressure = current_weather_data['main']['pressure']
+        current_weather_description = current_weather_data['weather'][0]['description']
+        location_display = f"{current_weather_data['name']}, {current_weather_data['sys']['country']}"
+    else:
+        # Fallback values if API call fails
+        current_temp = 'N/A'
+        current_humidity = 'N/A'
+        current_wind_speed = 'N/A'
+        current_pressure = 'N/A'
+        current_weather_description = 'N/A'
+        location_display = city_name
+
+    current_date = datetime.now().strftime("%B %d")
+    current_day = datetime.now().strftime("%A")
 
     # Generate the plot image.
     plot_image_base64 = create_plot(city_name)
 
-    # HTML template with an auto-refresh tag.
+    # The HTML template with the new glassmorphism visual design.
     html_template = """
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Live Weather Dashboard</title>
+        <title>Weather Dashboard</title>
         <meta http-equiv="refresh" content="15"> <!-- Auto-refresh every 15 seconds -->
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
         <style>
-            {% raw %}
-            body { font-family: 'Arial', sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; text-align: center; }
-            .container { max-width: 1200px; margin: auto; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-            h1 { color: #333; }
-            .form-container { margin-bottom: 20px; }
-            input[type="text"] { padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
-            button { padding: 10px 20px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; }
-            button:hover { background-color: #45a049; }
-            img { max-width: 100%; height: auto; margin-top: 20px; }
-            {% endraw %}
+            body {
+                font-family: 'Inter', sans-serif;
+                background-color: #e0e7ff;
+                min-height: 100vh;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                color: #555;
+            }
+            .glass-container {
+                background: rgba(255, 255, 255, 0.2);
+                border-radius: 20px;
+                border: 1px solid rgba(255, 255, 255, 0.3);
+                backdrop-filter: blur(10px);
+                -webkit-backdrop-filter: blur(10px);
+                box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1);
+                padding: 3rem;
+                display: flex;
+                flex-direction: column;
+                gap: 2rem;
+                max-width: 900px;
+                width: 90%;
+            }
+            .icon-box {
+                background: rgba(255, 255, 255, 0.2);
+                border-radius: 12px;
+                border: 1px solid rgba(255, 255, 255, 0.3);
+                backdrop-filter: blur(5px);
+                -webkit-backdrop-filter: blur(5px);
+                padding: 1rem;
+                text-align: center;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            }
+            .glass-input {
+                background: rgba(255, 255, 255, 0.2);
+                border-radius: 50px;
+                border: 1px solid rgba(255, 255, 255, 0.3);
+                backdrop-filter: blur(5px);
+                -webkit-backdrop-filter: blur(5px);
+                padding: 0.75rem 1.5rem;
+                color: #555;
+                font-size: 1rem;
+                outline: none;
+                width: 100%;
+                box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+                transition: box-shadow 0.2s;
+            }
+            .glass-input:focus {
+                box-shadow: 0 0 0 2px rgba(255,255,255,0.5), inset 0 2px 4px rgba(0,0,0,0.15);
+            }
+            .icon-main {
+                width: 180px;
+                height: 180px;
+                background-color: #a4b0d8;
+                border-radius: 50%;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                box-shadow: 0 15px 30px rgba(0,0,0,0.2);
+            }
+            .sun-icon {
+                background-color: #fddb00;
+                width: 100px;
+                height: 100px;
+                border-radius: 50%;
+                box-shadow: 0 0 20px #fddb00, 0 0 40px rgba(253, 219, 0, 0.5);
+            }
+            .main-temp {
+                font-size: 4rem;
+                font-weight: 300;
+                display: flex;
+                align-items: flex-start;
+                line-height: 1;
+            }
+            .main-temp .celsius-deg {
+                font-size: 2rem;
+            }
+            .details-list li {
+                display: flex;
+                justify-content: space-between;
+                font-size: 0.9rem;
+                padding: 0.25rem 0;
+            }
+            .glass-chart {
+                background: rgba(255, 255, 255, 0.2);
+                border-radius: 12px;
+                border: 1px solid rgba(255, 255, 255, 0.3);
+                backdrop-filter: blur(5px);
+                -webkit-backdrop-filter: blur(5px);
+                padding: 1rem;
+                text-align: center;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            }
+            .graph-image {
+                border-radius: 12px;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            }
         </style>
     </head>
-    <body>
-        <div class="container">
-            <h1>Live Weather Dashboard</h1>
-            <div class="form-container">
-                <form method="post">
-                    <input type="text" name="city" placeholder="Enter city name..." value="{{ city_name }}">
-                    <button type="submit">Update City</button>
+    <body class="bg-gray-200">
+        <div class="glass-container">
+            <div class="flex justify-center mb-4">
+                <form id="city-form" method="post" class="w-full">
+                    <input type="text" id="city-input" name="city" value="{{ city_name }}" placeholder="Search city..." class="glass-input">
                 </form>
             </div>
-            <img src="data:image/png;base64,{{ plot_image }}" alt="Live Weather Dashboard">
+
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-6">
+                <!-- Left Section: Current Weather Details -->
+                <div class="flex flex-col w-full sm:w-auto">
+                    <div class="flex items-center mb-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-1 text-gray-700" viewBox="0 0 24 24" fill="currentColor">
+                            <path fill-rule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm0 9a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5z" clip-rule="evenodd" />
+                        </svg>
+                        <h2 class="text-xl font-semibold">{{ location_display }}</h2>
+                    </div>
+                    <div class="text-sm font-medium">{{ current_date }}</div>
+                    <div class="text-sm font-medium">{{ current_day }}</div>
+                    <div class="flex items-start mt-4">
+                        <div class="main-temp">{{ "%.0f"|format(current_temp) if current_temp != 'N/A' else 'N/A' }}</div>
+                        <div class="main-temp text-3xl font-normal ml-2">°C</div>
+                    </div>
+                </div>
+
+                <!-- Right Section: Icon and Details -->
+                <div class="flex flex-col items-center justify-center sm:w-auto">
+                    <div class="w-24 h-24 relative">
+                        <div class="icon-main">
+                            <!-- A simple cloud and sun SVG combo for visual representation -->
+                            <svg class="h-full w-full opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M18 10h-1.26a8 8 0 1 0-16.34 0h1.26"/>
+                                <path d="M22 17h-1.26a8 8 0 1 0-16.34 0h1.26"/>
+                            </svg>
+                        </div>
+                        <div class="sun-icon absolute top-1/2 left-1/2 transform -translate-x-1/4 -translate-y-1/2"></div>
+                    </div>
+                     <div class="mt-4 text-center">
+                        <p class="text-sm font-medium">Pressure: {{ "%.0f"|format(current_pressure) if current_pressure != 'N/A' else 'N/A' }} hPa</p>
+                        <p class="text-sm font-medium">Humidity: {{ "%.0f"|format(current_humidity) if current_humidity != 'N/A' else 'N/A' }}%</p>
+                        <p class="text-sm font-medium">Wind: {{ "%.1f"|format(current_wind_speed) if current_wind_speed != 'N/A' else 'N/A' }} m/s</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Graph Section -->
+            <div class="w-full glass-chart mt-6">
+                <img src="data:image/png;base64,{{ plot_image }}" alt="Live Weather Graphs" class="graph-image">
+            </div>
+
+            <!-- Forecast Cards (Mock Data) -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
+                <div class="icon-box">
+                    <p class="text-sm">Today</p>
+                    <div class="mt-2">
+                         <svg class="h-10 w-10 mx-auto text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                             <path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 014-4h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a4 4 0 01-4-4zm7-6a4 4 0 014-4h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a4 4 0 01-4-4z" />
+                         </svg>
+                    </div>
+                    <p class="text-lg font-bold mt-1">-3°C</p>
+                </div>
+                <div class="icon-box">
+                    <p class="text-sm">Jan 9</p>
+                    <div class="mt-2">
+                         <svg class="h-10 w-10 mx-auto text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                         </svg>
+                    </div>
+                    <p class="text-lg font-bold mt-1">-1°C</p>
+                </div>
+                <div class="icon-box">
+                    <p class="text-sm">Jan 10</p>
+                    <div class="mt-2">
+                         <svg class="h-10 w-10 mx-auto text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 014-4h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a4 4 0 01-4-4zm7-6a4 4 0 014-4h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a4 4 0 01-4-4z" />
+                         </svg>
+                    </div>
+                    <p class="text-lg font-bold mt-1">+2°C</p>
+                </div>
+                <div class="icon-box">
+                    <p class="text-sm">Jan 11</p>
+                    <div class="mt-2">
+                         <svg class="h-10 w-10 mx-auto text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 014-4h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a4 4 0 01-4-4zm7-6a4 4 0 014-4h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a4 4 0 01-4-4z" />
+                         </svg>
+                    </div>
+                    <p class="text-lg font-bold mt-1">+6°C</p>
+                </div>
+            </div>
         </div>
     </body>
     </html>
     """
-    return render_template_string(html_template, plot_image=plot_image_base64, city_name=city_name)
+    return render_template_string(html_template, plot_image=plot_image_base64, city_name=city_name,
+                                  current_temp=current_temp, current_humidity=current_humidity,
+                                  current_wind_speed=current_wind_speed,
+                                  current_pressure=current_pressure,
+                                  current_weather_description=current_weather_description,
+                                  location_display=location_display,
+                                  current_date=current_date,
+                                  current_day=current_day)
 
 
 # --- Main Entry Point ---
 if __name__ == "__main__":
     print("Starting Flask web server...")
     print("Open your browser and navigate to http://127.0.0.1:5000/")
-    # You can change host='0.0.0.0' to make it accessible from other devices on your network.
     app.run(debug=True, use_reloader=False)
